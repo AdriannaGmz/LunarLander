@@ -1,30 +1,63 @@
-#is this now my version? -Dennis
-
+import numpy as np
 import gym
-env = gym.make('LunarLander-v2')
-for i_episode in range(20):   			#number of episodes
-    observation = env.reset() 			#takes observation from resetting env
-    for t in range(100): 				#timesteps per episode
-        env.render() 					
-        print(observation)
-        action = env.action_space.sample() 	#picks in action a random possible action in the action_space
-        observation, reward, done, info = env.step(action)  #stores the 4 values that step() can return from the env
-# observation (object): an environment-specific object representing 
-	# your observation of the environment. 
-	# For example, pixel data from a camera, joint angles and joint velocities of a robot, 
-	# or the board state in a board game.
-# reward (float): amount of reward achieved by the previous action. 
-	# The scale varies between environments, but the goal is always to increase 
-	# your total reward.
-# done (boolean): whether it's time to reset the environment again. Most
-	# (but not all) tasks are divided up into well-defined episodes, and
-	# done being True indicates the episode has terminated. (For example, perhaps 
-	# the pole tipped too far, or you lost your last life.)
-# info (dict): diagnostic information useful for debugging. It can sometimes
-	# be useful for learning (for example, it might contain the raw probabilities 
-	# behind the environment's last state change). However, official evaluations 
-	# of your agent are not allowed to use this for learning.
 
-        if done:  							#episode has terminated
-            print("Episode finished after {} timesteps".format(t+1))
-            break
+#hyperparameters
+H = 200
+batch_size = 10
+learning_rate = 1e-4
+gamma = 0.99
+render = False
+
+#model initialization
+D = 600*400
+model = {}
+model['A1'] = np.random.randn(H,D) / np.sqrt(D)
+model['A2'] = np.random.randn(H) / np.sqrt(H)
+model['C1'] = np.random.randn(H,D) / np.sqrt(D)
+model['C2'] = np.random.randn(H) / np.sqrt(H)
+
+#gradbuffer?
+#rmsporpchache?
+
+def prepro(I):
+	#no cropping
+	#background is alrady black
+	I[I != 0] = 1 #make other stuff white
+	return I.astype(np.float).ravel()
+
+def gaussian_sample(mean, std):
+	gauss_sample = np.random.normal(mean, std, None)
+	return gauss_sample 
+
+env = gym.make("Pong-v0")
+observation = env.reset()
+frame_minus_1 = None
+frame_minus_2 = None
+frame_minus_3 = None
+xs,hs,dlogps,drs = [],[],[],[]
+running_reward = None
+reward_sum = 0
+episode_number = 0
+
+while True:
+	if render: env.render()
+
+	# preprocess observaiton
+	frame_current = prepro(observation)
+
+	if frame_minus_2 is None
+	
+		if frame_minus_1 is None
+			frame_diff_vel_2 = np.zeros(D) - np.zeros(D)
+		else
+			frame_diff_vel_2 = frame_minus_1 - np.zeros(D)
+	
+	else
+		frame_diff_vel_2 = frame_minus_1 - frame_minus_2
+
+	frame_diff_acc = frame_diff_vel_1 - frame_diff_vel_2
+
+	frame_minus_2 = frame_minus_1
+	frame_minus_1 = frame_current
+	
+		
