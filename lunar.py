@@ -1,3 +1,5 @@
+#is this now my version? -Dennis
+
 import gym
 env = gym.make('LunarLander-v2')
 for i_episode in range(20):   			#number of episodes
