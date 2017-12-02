@@ -24,11 +24,10 @@ def gaussian_sample(mean, std):
 	gauss_sample = np.random.normal(mean, std, None)
 	return gauss_sample
 
-def explore_around_action(best_action, epsilon):
+def epsilon_greedy_exploration(best_action, episode_number):
+	epsilon = epsilon_scale/(epsilon_scale + episode_number)
 	prob_vector = [epsilon/4, epsilon/4, epsilon/4, epsilon/4]
-	print(prob_vector)
 	prob_vector[best_action] = epsilon/4 + 1 - epsilon
-	print(prob_vector)
 	action_to_explore = np.random.choice(4, 1, True, prob_vector)
  	return action_to_explore
 
@@ -54,10 +53,8 @@ while True:
 
 	# print(observation)
 
-	epsilon = epsilon_scale/(epsilon_scale + episode_number)
-
 	action = take_random_action()
-	action2 = explore_around_action(2, epsilon)
+	action2 = epsilon_greedy_exploration(2, episode_number)
 
 	print('Random Action: %d\nExplore Action: %d' % (action, action2))
 
