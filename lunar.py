@@ -9,7 +9,7 @@ learning_rate = 1e-4
 gamma = 0.99
 render = False
 alpha = 1
-beta = 1
+beta = 0.001
 
 #model initialization
 D = 8	# observation space
@@ -106,6 +106,7 @@ while True:
 	action = int(action)
 
 	observation, reward, done, info = env.step(action)
+	reward_sum += reward
 
 	new_state = observation
 
@@ -121,7 +122,9 @@ while True:
 
 	if done:
 		print('Episode %d finished. Resetting environment...' % episode_number)
+		print('Total reward: %f' % reward_sum)
 		episode_number += 1
+		reward_sum = 0
 		observation = env.reset()
 
 
