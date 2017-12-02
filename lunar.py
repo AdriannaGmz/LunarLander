@@ -22,6 +22,7 @@ model['C2'] = np.random.randn(H) / np.sqrt(H)
 def prepro(I):
 	#no cropping
 	#background is alrady black
+	I = I[::2,::2,0]
 	I[I != 0] = 1 #make other stuff white
 	return I.astype(np.float).ravel()
 
@@ -29,7 +30,7 @@ def gaussian_sample(mean, std):
 	gauss_sample = np.random.normal(mean, std, None)
 	return gauss_sample 
 
-env = gym.make("Pong-v0")
+env = gym.make("LunarLander-v2")
 observation = env.reset()
 frame_minus_1 = None
 frame_minus_2 = None
