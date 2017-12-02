@@ -1,5 +1,6 @@
 import numpy as np
 import gym
+from PIL import Image
 
 #hyperparameters
 H = 200
@@ -9,7 +10,7 @@ gamma = 0.99
 render = False
 
 #model initialization
-D = 600*400
+D = 300*200
 model = {}
 model['A1'] = np.random.randn(H,D) / np.sqrt(D)
 model['A2'] = np.random.randn(H) / np.sqrt(H)
@@ -19,46 +20,54 @@ model['C2'] = np.random.randn(H) / np.sqrt(H)
 #gradbuffer?
 #rmsporpchache?
 
-def prepro(I):
-	#no cropping
-	#background is alrady black
-	I = I[::2,::2,0]
-	I[I != 0] = 1 #make other stuff white
-	return I.astype(np.float).ravel()
-
 def gaussian_sample(mean, std):
 	gauss_sample = np.random.normal(mean, std, None)
-	return gauss_sample 
+	return gauss_sample
+
+def explore_around_action(best_action, epsilon):
+	prob_vector = [epsilon/4, epsilon/4, epsilon/4, epsilon/4]
+	print(prob_vector)
+	prob_vector[best_action] = epsilon/4 + 1 - epsilon
+	print(prob_vector)
+	action_to_explore = np.random.choice(4, 1, True, prob_vector)
+ 	return action_to_explore
+
+def take_random_action():
+	sampled_action = np.random.randint(4)
+	return sampled_action
+
 
 env = gym.make("LunarLander-v2")
 observation = env.reset()
 frame_minus_1 = None
 frame_minus_2 = None
-frame_minus_3 = None
 xs,hs,dlogps,drs = [],[],[],[]
 running_reward = None
 reward_sum = 0
-episode_number = 0
+episode_number = 1
+frame_number = 0
+epsilon_scale = 1.0
 
 while True:
+	frame_number+=1
 	if render: env.render()
 
-	# preprocess observaiton
-	frame_current = prepro(observation)
+	# print(observation)
 
-	if frame_minus_2 is None
+	epsilon = epsilon_scale/(epsilon_scale + episode_number)
+
+	action = take_random_action()
+	action2 = explore_around_action(2, epsilon)
+
+	print('Random Action: %d\nExplore Action: %d' % (action, action2))
+
+	episode_number+=1
+	if (episode_number == 20):
+		break
+
+
 	
-		if frame_minus_1 is None
-			frame_diff_vel_2 = np.zeros(D) - np.zeros(D)
-		else
-			frame_diff_vel_2 = frame_minus_1 - np.zeros(D)
-	
-	else
-		frame_diff_vel_2 = frame_minus_1 - frame_minus_2
 
-	frame_diff_acc = frame_diff_vel_1 - frame_diff_vel_2
 
-	frame_minus_2 = frame_minus_1
-	frame_minus_1 = frame_current
 	
 		
