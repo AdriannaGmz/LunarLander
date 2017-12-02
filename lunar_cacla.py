@@ -28,10 +28,27 @@ xs,hs,dlogps,drs = [],[],[],[]
 running_reward = None
 reward_sum = 0
 episode_number = 0
+epsilon_scale = 1.0
 
   
 def sigmoid(x): 
   return 1.0 / (1.0 + np.exp(-x)) # sigmoid "squashing" function to interval [0,1]
+
+
+def gaussian_sample(mean, std):
+  gauss_sample = np.random.normal(mean, std, None)
+  return gauss_sample
+
+def epsilon_greedy_exploration(best_action, episode_number):
+  epsilon = epsilon_scale/(epsilon_scale + episode_number)
+  prob_vector = [epsilon/4, epsilon/4, epsilon/4, epsilon/4]
+  prob_vector[best_action] = epsilon/4 + 1 - epsilon
+  action_to_explore = np.random.choice(4, 1, True, prob_vector)
+  return action_to_explore
+
+def take_random_action():
+  sampled_action = np.random.randint(4)
+return sampled_action
 
 def actor_forward(x):
   h1 = np.dot(model['Psi1'], x)
@@ -85,28 +102,34 @@ observation = env.reset()
 while True:
   if render: env.render()
 
-  # Select S0...
-
+  # ALG. Choose a from policy(s,psi)
   # forward the Actor  and sample an action from the returned probability
   aprob, h1 = actor_forward(observation)
-  action = 2 if np.random.uniform() < aprob else 3 # roll the dice!
+  action    = take_random_action()
+  a       = epsilon_greedy_exploration(2, episode_number)
+  print('Random Action: %d\nExplore Action: %d' % (action, a))
 
+  # ALG. perform a, observe r and s'
   # step the environment and get new measurements
   observation, reward, done, info = env.step(action)
   delta_t, h2 = critic_forward(x,reward)
 
+  # ALG. calculate delta = r + gamma*V(s') - V(s)
+  #   ALG. Theta_t = Theta_t + betta*delta*gradient_V(s)
+  #   ALG. if delta > 0 then
+  #     ALG. Psi_t = Psi_t + alpha*(a - Ac(s,psi)) grad_Ac(s,psi)
+  #   ALG. end if
+  #   ALG. If s' is terminal then
+  #     ALG   s ~ I 
+  #   ALG. else
+  #     ALG. s =s'
+  #   ALG. end if    
 
-  # For each step t = 0,1,2,...
+
+
+
+
+
   if done: # an episode finished
-    # episode_number += 1
+    episode_number += 1
 
-    # Select a_t with exploration around A_t(s_t) (greedy exploration)
-    # Perform a_t, observe r_t, s_t+1
-    # if s_t+1 is terminal
-    #   Update V_t+1(S_t) towards r_t with beta_t
-    #   select new s_t+1 (starting point for next episode)
-    # else:
-    #   Update V_t+1(S_t) towards r_t + gamma*V_t(s_t+1) with beta_t
-
-    # if V_t+1(S_t) > V_t(S_t)  (delta_t >0)
-    #   Update A_t+1(S_t) towards a_t with alpha_t
