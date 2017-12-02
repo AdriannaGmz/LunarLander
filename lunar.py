@@ -47,14 +47,14 @@ def actor_forward(x):
 	h[h<0] = 0
 	action_prob = np.dot(model['Psi2'], h)
 	output_prob = sigmoid(action_prob)
-	return output_prob, h
+	return output_prob
 
 def actor_backward(action, policy_action, actor_old_probs):
 	old_psi2 = model['Psi2']
-	new_psi2 = old_psi2 + alpha*(action - policy_action)*actor_old_probs
+	new_psi2 = old_psi2 + alpha*(action - policy_action)*np.amax(actor_old_probs)
 
 	old_psi1 = model['Psi1']
-	new_psi1 = old_psi1 + alpha*(action - policy_action)*actor_old_probs
+	new_psi1 = old_psi1 + alpha*(action - policy_action)*np.amax(actor_old_probs)
 
 	model['Psi1'] = new_psi1
 	model['Psi2'] = new_psi2
@@ -65,7 +65,7 @@ def critic_forward(x):
 	h[h<0] = 0
 	state_value = np.dot(model['Theta2'], h)
 	output_value = sigmoid(state_value)
-	return output_value, h
+	return output_value
 
 def critic_backward(delta_t, value_old_state):
 	old_theta2 = model['Theta2']
@@ -100,15 +100,16 @@ while True:
 
 	actor_probs = actor_forward(old_state)
 
-	policy_action = np.amax(actor_probs)
+	policy_action = int(np.amax(actor_probs))
 
 	action = epsilon_greedy_exploration(policy_action, episode_number)
+	action = int(action)
 
 	observation, reward, done, info = env.step(action)
 
 	new_state = observation
 
-	value_first_state = critic_forward(first_state)
+	value_old_state = critic_forward(old_state)
 	value_new_state = critic_forward(new_state)
 
 	delta_t = reward + gamma * value_new_state - value_old_state
