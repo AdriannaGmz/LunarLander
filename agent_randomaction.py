@@ -103,7 +103,7 @@ if __name__ == '__main__':
         print('Iteration %2i. Episode mean reward: %7.3f'%(i, iterdata['y_mean']))
         agent = BinaryActionLinearPolicy(iterdata['theta_mean'])
         # if args.display: do_rollout(agent, env, 200, render=True)
-        do_rollout(agent, env, 200, render=True)
+        do_rollout(agent, env, 20000, render=True)
 
 
 
