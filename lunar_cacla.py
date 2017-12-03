@@ -85,7 +85,7 @@ def critic_forward(x):
 #                 # >>> modelA['Psi2'].shape        # (4, 200)
 
 def actor_backward(hA, ac_prob,action):   #backpropagation only for weights that correspond to the performed action
-  dPsi2 = np.dot(np.vstack(hA.T), np.vstack(ac_prob).T)  #(200,4)  = <(200,1), (1,4)> 
+  dPsi2 = np.dot(np.vstack(hA.T), np.vstack(ac_prob).T).T  #(200,4)'   = <(200,1), (1,4)> 
   dhA  = np.outer(ac_prob[action], modelA['Psi2'][action])   #DEBE SER (1,200)  = (1,4) X (4,200) 
   dhA[np.vstack(hA).T <= 0] = 0 # backpro prelu
   dPsi1 = np.dot(dhA.T, np.vstack(x).T)                  #DEBE SER (200,8) = < (_1,200_)' (1,8)>
@@ -117,7 +117,7 @@ def discount_rewards(r):      # take 1D float array of rewards and compute disco
   return discounted_r
 
 
-
+drs = []
 env = gym.make("LunarLander-v2")
 x = env.reset()
 
@@ -159,7 +159,7 @@ while True:
     grad_A = actor_backward(hA, ac_prob,action)
     # only for the executed action
     for k,v in modelA.iteritems():   
-      modelA[k] += alpha * (action - ac_prob[action])* grad_C[k]
+      modelA[k] += alpha * (action - ac_prob[action])* grad_A[k]
 
   # ALG. end if
   # ALG. If s' is terminal then
@@ -193,5 +193,5 @@ while True:
     observation = env.reset() # reset env
     prev_x = None
 
-  if reward != 0: # Pong has either +1 or -1 reward exactly when game ends.
-    print ('ep %d: game finished, reward: %f' % (episode_number, reward)) + ('' if reward == -1 else ' !!!!!!!!')
+    if reward != 0: # Pong has either +1 or -1 reward exactly when game ends.
+      print ('ep %d: game finished, reward: %f' % (episode_number, reward)) + ('' if reward == -1 else ' !!!!!!!!')
