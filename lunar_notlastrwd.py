@@ -137,32 +137,33 @@ while True:
   # ALG. Perform a, observe r and s'
   x_prev = x
   x, reward, done, info = env.step(action) 
-  reward_sum += reward
-  drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
-  # print ('step %d: reward  %f for action %d' % (step_number, reward, action)) 
+  if ~done: # episode not finished
+    reward_sum += reward
+    # drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
+    # print ('step %d: reward  %f for action %d' % (step_number, reward, action)) 
 
 
-  # ALG. calculate delta = r + gamma*V(s') - V(s)
-  v_prev, hC_prev = critic_forward(x_prev)
-  v, hC           = critic_forward(x)
-  delta_t         = reward + gamma*v - v_prev
+    # ALG. calculate delta = r + gamma*V(s') - V(s)
+    v_prev, hC_prev = critic_forward(x_prev)
+    v, hC           = critic_forward(x)
+    delta_t         = reward + gamma*v - v_prev
 
-  #   ALG. Theta_t = Theta_t + beta*delta*gradient_V(s)  BACKPROPAGATION CRITIC
-  grad_C = critic_backward(hC, v)
-  for k,v in modelC.iteritems():
-    # rmspropC_cache[k] = decay_rate * rmspropC_cache[k] + (1 - decay_rate) * grad_C[k]**2
-    # modelC[k] += beta * grad_C[k] / (np.sqrt(rmspropC_cache[k]) + 1e-5)
-    modelC[k] += beta * delta_t * grad_C[k]
-    
+    #   ALG. Theta_t = Theta_t + beta*delta*gradient_V(s)  BACKPROPAGATION CRITIC
+    grad_C = critic_backward(hC, v)
+    for k,v in modelC.iteritems():
+      # rmspropC_cache[k] = decay_rate * rmspropC_cache[k] + (1 - decay_rate) * grad_C[k]**2
+      # modelC[k] += beta * grad_C[k] / (np.sqrt(rmspropC_cache[k]) + 1e-5)
+      modelC[k] += beta * delta_t * grad_C[k]
+      
 
-  #   ALG. if delta > 0 then
-  if delta_t>0:
-    #     ALG. Psi_t = Psi_t + alpha*(a - Ac(s,psi)) grad_Ac(s,psi)
-    grad_A = actor_backward(hA, ac_prob,action)
-    # only for the executed action
-    for k,v in modelA.iteritems():   
-      # modelA[k] += alpha * (action - ac_prob[action])* grad_A[k]
-      modelA[k] += alpha * grad_A[k]
+    #   ALG. if delta > 0 then
+    if delta_t>0:
+      #     ALG. Psi_t = Psi_t + alpha*(a - Ac(s,psi)) grad_Ac(s,psi)
+      grad_A = actor_backward(hA, ac_prob,action)
+      # only for the executed action
+      for k,v in modelA.iteritems():   
+        # modelA[k] += alpha * (action - ac_prob[action])* grad_A[k]
+        modelA[k] += alpha * grad_A[k]
 
   # ALG. end if
   # ALG. If s' is terminal then
@@ -171,6 +172,8 @@ while True:
   #   ALG. s =s'
   # ALG. end if 
 
+
+  drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
 
   if done: # an episode finished
     episode_number += 1

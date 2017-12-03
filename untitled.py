@@ -10,12 +10,9 @@ import gym
 # hyperparameters
 H = 200         # number of hidden layer neurons
 batch_size = 10 # every how many episodes to do a param update?
-# alpha = 1e-4    # learning_rate of actor
-# beta = 1e-2     # learning_rate of critic
-alpha = 0.5    # learning_rate of actor
-beta = 0.5     # learning_rate of critic
-# gamma = 0.99    # discount factor for reward
-gamma = 0.2    # discount factor for reward
+alpha = 1e-4    # learning_rate of actor
+beta = 1e-2     # learning_rate of critic
+gamma = 0.99    # discount factor for reward
 decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
 render = False
 
@@ -138,7 +135,7 @@ while True:
   x_prev = x
   x, reward, done, info = env.step(action) 
   reward_sum += reward
-  drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
+  # drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
   # print ('step %d: reward  %f for action %d' % (step_number, reward, action)) 
 
 
@@ -150,9 +147,9 @@ while True:
   #   ALG. Theta_t = Theta_t + beta*delta*gradient_V(s)  BACKPROPAGATION CRITIC
   grad_C = critic_backward(hC, v)
   for k,v in modelC.iteritems():
-    # rmspropC_cache[k] = decay_rate * rmspropC_cache[k] + (1 - decay_rate) * grad_C[k]**2
-    # modelC[k] += beta * grad_C[k] / (np.sqrt(rmspropC_cache[k]) + 1e-5)
-    modelC[k] += beta * delta_t * grad_C[k]
+    rmspropC_cache[k] = decay_rate * rmspropC_cache[k] + (1 - decay_rate) * grad_C[k]**2
+    modelC[k] += beta * delta_t * grad_C[k] / (np.sqrt(rmspropC_cache[k]) + 1e-5)
+    # modelC[k] += beta * delta_t * grad_C[k]
     
 
   #   ALG. if delta > 0 then
@@ -162,7 +159,10 @@ while True:
     # only for the executed action
     for k,v in modelA.iteritems():   
       # modelA[k] += alpha * (action - ac_prob[action])* grad_A[k]
-      modelA[k] += alpha * grad_A[k]
+      # modelA[k] += alpha * grad_A[k]
+      rmspropA_cache[k] = decay_rate * rmspropA_cache[k] + (1 - decay_rate) * grad_A[k]**2
+      modelA[k] += alpha * grad_A[k] / (np.sqrt(rmspropA_cache[k]) + 1e-5)
+    
 
   # ALG. end if
   # ALG. If s' is terminal then
@@ -171,6 +171,8 @@ while True:
   #   ALG. s =s'
   # ALG. end if 
 
+
+  drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
 
   if done: # an episode finished
     episode_number += 1
