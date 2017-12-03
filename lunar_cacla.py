@@ -71,24 +71,39 @@ def critic_forward(x):
   v = sigmoid(logv)
   return v, hC              # v is value function 
 
-def actor_backward(hA, ac_prob):   #backpropagation also has to be by four, not 1. NOT BY EPISODE!
-  # dPsi2 = np.dot(hA.T, ac_prob).ravel()
-  dPsi2 = np.dot(np.vstack(hA.T), np.vstack(ac_prob).T)  #(200,4)  = <(200,1), (1,4)>
-  
-  dhA = np.outer(np.vstack(ac_prob).T, modelA['Psi2'])
+# def actor_backward(hA, ac_prob):   #backpropagation also has to be by four, not 1. NOT BY EPISODE!
+#   # dPsi2 = np.dot(hA.T, ac_prob).ravel()
+#   dPsi2 = np.dot(np.vstack(hA.T), np.vstack(ac_prob).T)  #(200,4)  = <(200,1), (1,4)> 
+#   # dhA = np.outer(np.vstack(ac_prob).T, modelA['Psi2'])   #DEBE SER (1,200)  = (1,4) X (4,200)
+#   dhA = 0.0;
+#   for i in range(len(ac_prob)):
+#     dhA += np.outer(ac_prob[i], modelA['Psi2'][i])   #DEBE SER (1,200)  = (1,4) X (4,200) 
+#   dhA[np.vstack(hA).T <= 0] = 0 # backpro prelu
+#   dPsi1 = np.dot(dhA.T, np.vstack(x).T)                  #DEBE SER (200,8) = < (_1,200_)' (1,8)>
+#   return {'Psi1':dPsi1, 'Psi2':dPsi2}
+#                 # >>> modelA['Psi1'].shape        # (200, 8)
+#                 # >>> modelA['Psi2'].shape        # (4, 200)
+
+def actor_backward(hA, ac_prob,action):   #backpropagation only for weights that correspond to the performed action
+  dPsi2 = np.dot(np.vstack(hA.T), np.vstack(ac_prob).T)  #(200,4)  = <(200,1), (1,4)> 
+  dhA  = np.outer(ac_prob[action], modelA['Psi2'][action])   #DEBE SER (1,200)  = (1,4) X (4,200) 
   dhA[np.vstack(hA).T <= 0] = 0 # backpro prelu
-  dPsi1 = np.dot(dhA.T, np.vstack(x).T)
+  dPsi1 = np.dot(dhA.T, np.vstack(x).T)                  #DEBE SER (200,8) = < (_1,200_)' (1,8)>
   return {'Psi1':dPsi1, 'Psi2':dPsi2}
                 # >>> modelA['Psi1'].shape        # (200, 8)
                 # >>> modelA['Psi2'].shape        # (4, 200)
 
 def critic_backward(hC, v):
-  dTheta2 = np.dot(hC.T, v).ravel()
-  dhC = np.outer(v, modelC['Theta2'])
+  dTheta2 = np.dot(hC.T, v).ravel()         # (200,)   = <(200,)', (1)>
+
+  dhC = np.outer(v, modelC['Theta2'])       # (1,200)  =  (1) X (200,) 
   # dhC[hC <= 0] = 0 # backpro prelu
   dhC[np.vstack(hC).T <= 0] = 0 # backpro prelu
-  dTheta1 = np.dot(dhC.T, np.vstack(x).T)
+  dTheta1 = np.dot(dhC.T, np.vstack(x).T)   # (200,8) = < (1,200)' (1,8)>
   return {'Theta1':dTheta1, 'Theta2':dTheta2}
+                # >>> modelC['Theta1'].shape      # (200, 8)
+                # >>> modelC['Theta2'].shape      # (200,)
+
 
 
 def discount_rewards(r):      # take 1D float array of rewards and compute discounted reward
@@ -107,79 +122,76 @@ env = gym.make("LunarLander-v2")
 x = env.reset()
 
 
-# while True:
+while True:
+  if render: env.render()
+
+  x = env.reset()
+
+  # ALG. Choose a from policy(s,psi):
+      # forward the Actor to get actions probabilities
+  ac_prob, hA = actor_forward(x)
+      # Sample an action from the returned probability with greedy exploration
+  action    = int(epsilon_greedy_exploration(np.argmax(ac_prob), episode_number))
+
+  # ALG. Perform a, observe r and s'
+  x_prev = x
+  x, reward, done, info = env.step(action) 
+  # reward_sum += reward
+  # drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
 
 
-if render: env.render()
+  # ALG. calculate delta = r + gamma*V(s') - V(s)
+  v_prev, hC_prev = critic_forward(x_prev)
+  v, hC           = critic_forward(x)
+  delta_t         = reward + gamma*v_prev - v
 
-x = env.reset()
+  #   ALG. Theta_t = Theta_t + beta*delta*gradient_V(s)  BACKPROPAGATION CRITIC
+  grad_C = critic_backward(hC, v)
+  for k,v in modelC.iteritems():
+    # rmspropC_cache[k] = decay_rate * rmspropC_cache[k] + (1 - decay_rate) * grad_C[k]**2
+    # modelC[k] += beta * grad_C[k] / (np.sqrt(rmspropC_cache[k]) + 1e-5)
+    modelC[k] += beta * delta_t * grad_C[k]
+    
 
-# ALG. Choose a from policy(s,psi):
-    # forward the Actor to get actions probabilities
-ac_prob, hA = actor_forward(x)
-    # Sample an action from the returned probability with greedy exploration
-action    = int(epsilon_greedy_exploration(np.argmax(ac_prob), episode_number))
+  #   ALG. if delta > 0 then
+  if delta_t>0:
+    #     ALG. Psi_t = Psi_t + alpha*(a - Ac(s,psi)) grad_Ac(s,psi)
+    grad_A = actor_backward(hA, ac_prob,action)
+    # only for the executed action
+    for k,v in modelA.iteritems():   
+      modelA[k] += alpha * (action - ac_prob[action])* grad_C[k]
 
-# ALG. Perform a, observe r and s'
-x_prev = x
-x, reward, done, info = env.step(action) 
-# reward_sum += reward
-# drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
-
-
-# ALG. calculate delta = r + gamma*V(s') - V(s)
-v_prev, hC_prev = critic_forward(x_prev)
-v, hC           = critic_forward(x)
-delta_t          = reward + gamma*v_prev - v
-
-#   ALG. Theta_t = Theta_t + beta*delta*gradient_V(s)  BACKPROPAGATION CRITIC
-grad_C = critic_backward(hC, v)
-for k,v in modelC.iteritems():
-  # rmspropC_cache[k] = decay_rate * rmspropC_cache[k] + (1 - decay_rate) * grad_C[k]**2
-  # modelC[k] += beta * grad_C[k] / (np.sqrt(rmspropC_cache[k]) + 1e-5)
-  modelC[k] += beta * delta_t * grad_C[k]
-  
-
-#   ALG. if delta > 0 then
-if delta_t>0:
-  #     ALG. Psi_t = Psi_t + alpha*(a - Ac(s,psi)) grad_Ac(s,psi)
-  grad_A = actor_backward(hA, ac_prob)
-  for k,v in modelA.iteritems():
-    modelA[k] += alpha * action - ac_prob* grad_C[k]
+  # ALG. end if
+  # ALG. If s' is terminal then
+  #   ALG   s ~ I 
+  # ALG. else
+  #   ALG. s =s'
+  # ALG. end if 
 
 
+  reward_sum += reward
 
-# # compute the discounted reward backwards through time
-# discounted_r = discount_rewards(drs)
-# # standardize the rewards to be unit normal (helps control the gradient estimator variance)
-# discounted_r -= np.mean(discounted_r)
-# discounted_r /= np.std(discounted_r)
+  drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
 
-# dlogp *= discounted_r # modulate the gradient
-# grad = actor_backward(h1, dlogp)
-# # for k in model: grad_buffer[k] += grad[k] # accumulate grad over batch
+  if done: # an episode finished
+    episode_number += 1
 
-# # # perform rmsprop parameter update every batch_size episodes
-# # if episode_number % batch_size == 0:
-# #   for k,v in model.iteritems():
-# #     g = grad_buffer[k] # gradient
-# #     rmsprop_cache[k] = decay_rate * rmsprop_cache[k] + (1 - decay_rate) * g**2
-# #     model[k] += learning_rate * g / (np.sqrt(rmsprop_cache[k]) + 1e-5)
-# #     grad_buffer[k] = np.zeros_like(v) # reset batch gradient buffer
+    # stack together all inputs, hidden states, action gradients, and rewards for this episode
+    epr = np.vstack(drs)
+    drs = [] # reset array memory
 
+    # compute the discounted reward backwards through time
+    discounted_epr = discount_rewards(epr)
+    # standardize the rewards to be unit normal (helps control the gradient estimator variance)
+    discounted_epr -= np.mean(discounted_epr)
+    discounted_epr /= np.std(discounted_epr)
 
-#   ALG. end if
-#   ALG. If s' is terminal then
-#     ALG   s ~ I 
-#   ALG. else
-#     ALG. s =s'
-#   ALG. end if    
+    # boring book-keeping
+    running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
+    print 'resetting env. episode reward total was %f. running mean: %f' % (reward_sum, running_reward)
+    reward_sum = 0
+    observation = env.reset() # reset env
+    prev_x = None
 
-
-
-
-
-
-observation = env.reset() # reset env
-x_prev = None
-
+  if reward != 0: # Pong has either +1 or -1 reward exactly when game ends.
+    print ('ep %d: game finished, reward: %f' % (episode_number, reward)) + ('' if reward == -1 else ' !!!!!!!!')
