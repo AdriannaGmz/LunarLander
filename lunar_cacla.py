@@ -10,30 +10,37 @@ import gym
 # hyperparameters
 H = 200         # number of hidden layer neurons
 batch_size = 10 # every how many episodes to do a param update?
-learning_rate = 1e-4
+alpha = 1e-4    # learning_rate of actor
+beta = 1e-2     # learning_rate of critic
 gamma = 0.99    # discount factor for reward
-# decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
+decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
 # resume = False # resume from previous checkpoint?
 render = False
 
-# Initialize Actor (or NN1,A0) and Critic (or NN2,V0) for all states
-D = 8*1         # input dimensionality: 8x1 grid
-model = {}
-model['Psi1']   = np.random.randn(H,D) / np.sqrt(D)
-model['Psi2']   = np.random.randn(H) / np.sqrt(H)
-model['Theta1'] = np.random.randn(H,D) / np.sqrt(D)
-model['Theta2'] = np.random.randn(H) / np.sqrt(H)
 
-xs,hs,dlogps,drs = [],[],[],[]
+#models initialization, Actor and Critic
+D = 8 # observation space
+A = 4 # action space
+modelA = {}
+modelA['Psi1'] = np.random.randn(H,D) / np.sqrt(D)
+modelA['Psi2'] = np.random.randn(A,H) / np.sqrt(H)
+modelC = {}
+modelC['Theta1'] = np.random.randn(H,D) / np.sqrt(D)
+modelC['Theta2'] = np.random.randn(H) / np.sqrt(H)
+
+rmspropA_cache = { k : np.zeros_like(v) for k,v in modelA.iteritems() } # rmsprop memory
+rmspropC_cache = { k : np.zeros_like(v) for k,v in modelC.iteritems() } 
+
+# xs,hAs,hCs,dlogps,drs = [],[],[],[]
 running_reward = None
 reward_sum = 0
 episode_number = 0
 epsilon_scale = 1.0
+x_prev = None
 
   
 def sigmoid(x): 
   return 1.0 / (1.0 + np.exp(-x)) # sigmoid "squashing" function to interval [0,1]
-
 
 def gaussian_sample(mean, std):
   gauss_sample = np.random.normal(mean, std, None)
@@ -48,88 +55,131 @@ def epsilon_greedy_exploration(best_action, episode_number):
 
 def take_random_action():
   sampled_action = np.random.randint(4)
-return sampled_action
+  return sampled_action
 
 def actor_forward(x):
-  h1 = np.dot(model['Psi1'], x)
-  h1[h1<0] = 0    # ReLU nonlinearity
-  logp = np.dot(model['Psi2'], h1)
+  hA = np.dot(modelA['Psi1'], x)
+  hA[hA<0] = 0    # ReLU nonlinearity
+  logp = np.dot(modelA['Psi2'], hA)  #here is weird.. need to transpose to 4 actions, not only one
   p = sigmoid(logp)
-  return p, h1     # return probability of taking action 2, and hidden state
+  return p, hA     
 
-def actor_backward(eph, epdlogp):
-  """ backward pass. (eph is array of intermediate hidden states) """
-  dPsi2 = np.dot(eph.T, epdlogp).ravel()
-  dh1 = np.outer(epdlogp, model['Psi2'])
-  dh1[eph <= 0] = 0 # backpro prelu
-  dPsi1 = np.dot(dh1.T, epx)
-  return {'Psi1':dPsi1, 'Psi2':dPsi2}
+def critic_forward(x):
+  hC = np.dot(modelC['Theta1'], x)
+  hC[hC<0] = 0      
+  logv = np.dot(modelC['Theta2'], hC)
+  v = sigmoid(logv)
+  return v, hC              # v is value function 
 
-def critic_forward(x,rwd):
-  h2 = np.dot(model['Theta1'], x)
-  h2[h2<0] = 0      # ReLU nonlinearity
-  logp = np.dot(model['Theta2'], h2)
-  p = sigmoid(logp)
-  return delta_t, h2 # return delta_t and hidden state
-  def discount_rewards(r):
-    """ take 1D float array of rewards and compute discounted reward """
-    discounted_r = np.zeros_like(r)
-    running_add = 0
-    for t in reversed(xrange(0, r.size)):
-      if r[t] != 0: running_add = 0 # reset the sum, since this was a game boundary (pong specific!)
-      running_add = running_add * gamma + r[t]
-      discounted_r[t] = running_add
-    return discounted_r
-      reward_sum += reward
-      # record reward (has to be done after we call step() to get reward for previous action)
-      drs.append(reward) 
-
+def actor_backward(hA, ac_prob):   #backpropagation also has to be by four, not 1. NOT BY EPISODE!
+  # dPsi2 = np.dot(hA.T, ac_prob).ravel()
+  dPsi2 = np.dot(np.vstack(hA.T), np.vstack(ac_prob).T)  #(200,4)  = <(200,1), (1,4)>
   
+  dhA = np.outer(np.vstack(ac_prob).T, modelA['Psi2'])
+  dhA[np.vstack(hA).T <= 0] = 0 # backpro prelu
+  dPsi1 = np.dot(dhA.T, np.vstack(x).T)
+  return {'Psi1':dPsi1, 'Psi2':dPsi2}
+                # >>> modelA['Psi1'].shape        # (200, 8)
+                # >>> modelA['Psi2'].shape        # (4, 200)
 
-def critic_backward(eph, epdlogp):
-  dW2 = np.dot(eph.T, epdlogp).ravel()
-  dh = np.outer(epdlogp, model['Theta2'])
-  dh[eph <= 0] = 0 # backpro prelu
-  dW1 = np.dot(dh.T, epx)
-  return {'Theta1':dW1, 'Theta2':dW2}
+def critic_backward(hC, v):
+  dTheta2 = np.dot(hC.T, v).ravel()
+  dhC = np.outer(v, modelC['Theta2'])
+  # dhC[hC <= 0] = 0 # backpro prelu
+  dhC[np.vstack(hC).T <= 0] = 0 # backpro prelu
+  dTheta1 = np.dot(dhC.T, np.vstack(x).T)
+  return {'Theta1':dTheta1, 'Theta2':dTheta2}
+
+
+def discount_rewards(r):      # take 1D float array of rewards and compute discounted reward
+  discounted_r = np.zeros_like(r)
+  running_add = 0
+  for t in reversed(xrange(0, r.size)):
+    if r[t] != 0: running_add = 0 # reset the sum, since this was a game boundary 
+    #   R_t     = r_t + running_add * gamma = r_t + gamma * R_t+1
+    running_add = r[t] + running_add * gamma  
+    discounted_r[t] = running_add
+  return discounted_r
 
 
 
 env = gym.make("LunarLander-v2")
-observation = env.reset()
+x = env.reset()
 
 
-while True:
-  if render: env.render()
+# while True:
 
-  # ALG. Choose a from policy(s,psi)
-  # forward the Actor  and sample an action from the returned probability
-  aprob, h1 = actor_forward(observation)
-  action    = take_random_action()
-  a       = epsilon_greedy_exploration(2, episode_number)
-  print('Random Action: %d\nExplore Action: %d' % (action, a))
 
-  # ALG. perform a, observe r and s'
-  # step the environment and get new measurements
-  observation, reward, done, info = env.step(action)
-  delta_t, h2 = critic_forward(x,reward)
+if render: env.render()
 
-  # ALG. calculate delta = r + gamma*V(s') - V(s)
-  #   ALG. Theta_t = Theta_t + betta*delta*gradient_V(s)
-  #   ALG. if delta > 0 then
+x = env.reset()
+
+# ALG. Choose a from policy(s,psi):
+    # forward the Actor to get actions probabilities
+ac_prob, hA = actor_forward(x)
+    # Sample an action from the returned probability with greedy exploration
+action    = int(epsilon_greedy_exploration(np.argmax(ac_prob), episode_number))
+
+# ALG. Perform a, observe r and s'
+x_prev = x
+x, reward, done, info = env.step(action) 
+# reward_sum += reward
+# drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
+
+
+# ALG. calculate delta = r + gamma*V(s') - V(s)
+v_prev, hC_prev = critic_forward(x_prev)
+v, hC           = critic_forward(x)
+delta_t          = reward + gamma*v_prev - v
+
+#   ALG. Theta_t = Theta_t + beta*delta*gradient_V(s)  BACKPROPAGATION CRITIC
+grad_C = critic_backward(hC, v)
+for k,v in modelC.iteritems():
+  # rmspropC_cache[k] = decay_rate * rmspropC_cache[k] + (1 - decay_rate) * grad_C[k]**2
+  # modelC[k] += beta * grad_C[k] / (np.sqrt(rmspropC_cache[k]) + 1e-5)
+  modelC[k] += beta * delta_t * grad_C[k]
+  
+
+#   ALG. if delta > 0 then
+if delta_t>0:
   #     ALG. Psi_t = Psi_t + alpha*(a - Ac(s,psi)) grad_Ac(s,psi)
-  #   ALG. end if
-  #   ALG. If s' is terminal then
-  #     ALG   s ~ I 
-  #   ALG. else
-  #     ALG. s =s'
-  #   ALG. end if    
+  grad_A = actor_backward(hA, ac_prob)
+  for k,v in modelA.iteritems():
+    modelA[k] += alpha * action - ac_prob* grad_C[k]
+
+
+
+# # compute the discounted reward backwards through time
+# discounted_r = discount_rewards(drs)
+# # standardize the rewards to be unit normal (helps control the gradient estimator variance)
+# discounted_r -= np.mean(discounted_r)
+# discounted_r /= np.std(discounted_r)
+
+# dlogp *= discounted_r # modulate the gradient
+# grad = actor_backward(h1, dlogp)
+# # for k in model: grad_buffer[k] += grad[k] # accumulate grad over batch
+
+# # # perform rmsprop parameter update every batch_size episodes
+# # if episode_number % batch_size == 0:
+# #   for k,v in model.iteritems():
+# #     g = grad_buffer[k] # gradient
+# #     rmsprop_cache[k] = decay_rate * rmsprop_cache[k] + (1 - decay_rate) * g**2
+# #     model[k] += learning_rate * g / (np.sqrt(rmsprop_cache[k]) + 1e-5)
+# #     grad_buffer[k] = np.zeros_like(v) # reset batch gradient buffer
+
+
+#   ALG. end if
+#   ALG. If s' is terminal then
+#     ALG   s ~ I 
+#   ALG. else
+#     ALG. s =s'
+#   ALG. end if    
 
 
 
 
 
 
-  if done: # an episode finished
-    episode_number += 1
+observation = env.reset() # reset env
+x_prev = None
 
