@@ -26,9 +26,17 @@ A = 4 # action space
 modelA0 = {}
 modelA0['Psi1'] = np.random.randn(H,D) / np.sqrt(D)
 modelA0['Psi2'] = np.random.randn(H) / np.sqrt(H)
-modelA1 = { k : np.zeros_like(v) for k,v in modelA0.iteritems() }
-modelA2 = { k : np.zeros_like(v) for k,v in modelA0.iteritems() }
-modelA3 = { k : np.zeros_like(v) for k,v in modelA0.iteritems() }
+modelA1 = {}
+modelA1['Psi1'] = np.random.randn(H,D) / np.sqrt(D)
+modelA1['Psi2'] = np.random.randn(H) / np.sqrt(H)
+modelA2 = {}
+modelA2['Psi1'] = np.random.randn(H,D) / np.sqrt(D)
+modelA2['Psi2'] = np.random.randn(H) / np.sqrt(H)
+modelA3 = {}
+modelA3['Psi1'] = np.random.randn(H,D) / np.sqrt(D)
+modelA3['Psi2'] = np.random.randn(H) / np.sqrt(H)
+
+
 
 modelC = {}
 modelC['Theta1'] = np.random.randn(H,D) / np.sqrt(D)
@@ -67,44 +75,12 @@ def take_random_action():
   sampled_action = np.random.randint(4)
   return sampled_action
 
-
-
-
 def actor_forward(model,x):
   hA = np.dot(model['Psi1'], x)
   hA[hA<0] = 0    # ReLU nonlinearity
   logp = np.dot(model['Psi2'], hA)  
   p = sigmoid(logp)
   return p, hA  
-
-# def actor0_forward(x):
-#   hA0 = np.dot(modelA0['Psi1'], x)
-#   hA0[hA0<0] = 0    # ReLU nonlinearity
-#   logp = np.dot(modelA0['Psi2'], hA0)  
-#   p = sigmoid(logp)
-#   return p, hA0     
-
-# def actor1_forward(x):
-#   hA1 = np.dot(modelA1['Psi1'], x)
-#   hA1[hA1<0] = 0    
-#   logp = np.dot(modelA1['Psi2'], hA1)
-#   p = sigmoid(logp)
-#   return p, hA1
-
-# def actor2_forward(x):
-#   hA2 = np.dot(modelA2['Psi1'], x)
-#   hA2[hA2<0] = 0    
-#   logp = np.dot(modelA2['Psi2'], hA2)
-#   p = sigmoid(logp)
-#   return p, hA2
-
-# def actor3_forward(x):
-#   hA3 = np.dot(modelA3['Psi1'], x)
-#   hA3[hA3<0] = 0    
-#   logp = np.dot(modelA3['Psi2'], hA3)
-#   p = sigmoid(logp)
-#   return p, hA3
-
 
 
 def critic_forward(x):
