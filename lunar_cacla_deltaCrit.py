@@ -12,9 +12,6 @@ H = 200         # number of hidden layer neurons
 batch_size = 10 # every how many episodes to do a param update?
 alpha = 1e-4    # learning_rate of actor
 beta = 1e-2     # learning_rate of critic
-# alpha = 0.5    # learning_rate of actor
-# beta = 0.5     # learning_rate of critic
-# gamma = 0.99    # discount factor for reward
 gamma = 0.99    # discount factor for reward
 decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
 render = False
@@ -53,7 +50,6 @@ rmspropA2_cache = { k : np.zeros_like(v) for k,v in modelA2.iteritems() }
 rmspropA3_cache = { k : np.zeros_like(v) for k,v in modelA3.iteritems() } 
 rmspropC_cache = { k : np.zeros_like(v) for k,v in modelC.iteritems() } 
 
-# xs,hAs,hCs,dlogps,drs = [],[],[],[]
 running_reward = None
 reward_sum = 0
 episode_number = 0
@@ -80,6 +76,7 @@ def take_random_action():
   sampled_action = np.random.randint(4)
   return sampled_action
 
+
 def actor_forward(model,x):
   hA = np.dot(model['Psi1'], x)
   hA[hA<0] = 0    # ReLU nonlinearity
@@ -87,15 +84,13 @@ def actor_forward(model,x):
   p = sigmoid(logp)
   return p, hA  
 
-
 def critic_forward(x):
   hC = np.dot(modelC['Theta1'], x)
   hC[hC<0] = 0      
   logv = np.dot(modelC['Theta2'], hC)
-  v = sigmoid(logv)
-  return v, hC              # v is value function 
-  # return logv, hC              # logv is the value for the value function. Linear activation
-
+  # v = sigmoid(logv)
+  # return v, hC              
+  return logv, hC              # logv is the value for the value function. Linear activation
 
 def actor_backward(model, hA, err_ac):   
   dPsi2 = np.dot(hA.T, err_ac).ravel()     #(200,)   = <(200,)', (1)> 
@@ -105,7 +100,6 @@ def actor_backward(model, hA, err_ac):
   return {'Psi1':dPsi1, 'Psi2':dPsi2}
                 # >>> modelA['Psi1'].shape        # (200, 8)
                 # >>> modelA['Psi2'].shape        # (200,)
-
 
 def critic_backward(hC, v):
   dTheta2 = np.dot(hC.T, v).ravel()         # (200,)   = <(200,)', (1)>
@@ -132,7 +126,7 @@ def discount_rewards(r):      # take 1D float array of rewards and compute disco
 drs = []
 env = gym.make("LunarLander-v2")
 x = env.reset()
-
+x_prev = None
 
 while True:
   if render: env.render()
@@ -162,14 +156,14 @@ while True:
 
 
   #   ALG. Theta_t = Theta_t + beta*delta*gradient_V(s)  BACKPROPAGATION CRITIC
-  err_v = delta_t
+  # err_v = reward + gamma*v 
+  err_v = v - v_prev
   grad_C = critic_backward(hC, err_v)
   for k in modelC: gradC_buffer[k] += grad_C[k] 
   if step_number % batch_size == 0:
     for k,v in modelC.iteritems():
       rmspropC_cache[k] = decay_rate * rmspropC_cache[k]+  (1 - decay_rate) * grad_C[k]**2
-      modelC[k] += beta * grad_C[k] / (np.sqrt(rmspropC_cache[k]) + 1e-5)
-      # modelC[k] += beta * delta_t * grad_C[k]
+      modelC[k] += beta *delta_t* grad_C[k] / (np.sqrt(rmspropC_cache[k]) + 1e-5)
     
 
   #   ALG. if delta > 0 then
@@ -243,11 +237,11 @@ while True:
     episode_number += 1
 
 
-    # boring book-keeping
+    # book-keeping
     running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
-    print 'game finnished, steps: %d, episode %d total reward: %f. running mean: %f' % (step_number,episode_number, reward_sum, running_reward)
+    print 'game finnished. episode:%d, total steps %d, total reward %f. running mean: %f' % (episode_number-1,step_number-1, reward_sum, running_reward)
     reward_sum = 0
-    x = env.reset() # reset env
+    x = env.reset()
     x_prev = None
     step_number=0
-
+  print ('ep %d: step %d, rwd %f for action %d' % (episode_number,step_number, reward, action))
