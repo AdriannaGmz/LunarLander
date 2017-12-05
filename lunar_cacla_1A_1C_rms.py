@@ -127,8 +127,17 @@ while True:
   # err_v = reward + gamma*v 
   err_v = v - v_prev if delta_t>0 else 10000 # a big mistake
   grad_C = critic_backward(hC, err_v)
-  for k,v in modelC.iteritems():
-    modelC[k] += -beta * grad_C[k] 
+  # for k,v in modelC.iteritems():
+  #   modelC[k] += -beta * grad_C[k] 
+  for k in modelC: gradC_buffer[k] += grad_C[k] 
+  if step_number % batch_size == 0:
+    for k,v in modelC.iteritems():
+      g = gradC_buffer[k] 
+      rmspropC_cache[k] = decay_rate * rmspropC_cache[k] + (1 - decay_rate) * g**2
+      modelC[k] += - beta * g / (np.sqrt(rmspropC_cache[k]) + 1e-5)
+      gradC_buffer[k] = np.zeros_like(v) 
+
+
     
 
   #   ALG. if delta > 0 then
@@ -140,14 +149,15 @@ while True:
     # only for the non-executed actions
       # modelA[k] += alpha * (action - ac_prob[action])* grad_A[k]
       grad_A = actor_backward(hA,err_probs)
-      for k,v in modelA.iteritems():   
-        modelA[k] += -alpha * grad_A[k]
-      # for k in modelA: gradA_buffer[k] += grad_A[k] 
-      # if step_number % batch_size == 0:
-      #   for k,v in modelA.iteritems():
-      #     g = gradA_buffer[k] # gradient
-      #     rmspropA_cache[k] = decay_rate * rmspropA_cache[k] + (1 - decay_rate) * g**2
-      #     modelA[k] += alpha * g / (np.sqrt(rmspropA_cache[k]) + 1e-5)
+      # for k,v in modelA.iteritems():   
+      #   modelA[k] += -alpha * grad_A[k]
+      for k in modelA: gradA_buffer[k] += grad_A[k] 
+      if step_number % batch_size == 0:
+        for k,v in modelA.iteritems():
+          g = gradA_buffer[k] 
+          rmspropA_cache[k] = decay_rate * rmspropA_cache[k] + (1 - decay_rate) * g**2
+          modelA[k] += - alpha * g / (np.sqrt(rmspropA_cache[k]) + 1e-5)
+          gradA_buffer[k] = np.zeros_like(v) 
 
 
 
