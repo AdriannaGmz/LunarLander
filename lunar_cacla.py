@@ -1,7 +1,7 @@
 """ Trains an Actor with CACLA learning through a Critic. Uses OpenAI Gym. """
-# Two neural networks are used 
-# Actor  is NN1, Psi parameters
-# Critic is NN2, Theta parameters
+# 5 neural networks are used, 200 neurons for the single hidden layer 
+# Actor  is Psi parameters, one NN for each action. 4 actions = 0,1, 2, 3. Sigmoid activation function
+# Critic is Theta parameters, one NN. Linear activaton function
 
 import numpy as np
 import cPickle as pickle
@@ -23,14 +23,21 @@ render = False
 #models initialization, Actor and Critic
 D = 8 # observation space
 A = 4 # action space
-modelA = {}
-modelA['Psi1'] = np.random.randn(H,D) / np.sqrt(D)
-modelA['Psi2'] = np.random.randn(A,H) / np.sqrt(H)
+modelA0 = {}
+modelA0['Psi1'] = np.random.randn(H,D) / np.sqrt(D)
+modelA0['Psi2'] = np.random.randn(H) / np.sqrt(H)
+modelA1 = { k : np.zeros_like(v) for k,v in modelA0.iteritems() }
+modelA2 = { k : np.zeros_like(v) for k,v in modelA0.iteritems() }
+modelA3 = { k : np.zeros_like(v) for k,v in modelA0.iteritems() }
+
 modelC = {}
 modelC['Theta1'] = np.random.randn(H,D) / np.sqrt(D)
 modelC['Theta2'] = np.random.randn(H) / np.sqrt(H)
 
-rmspropA_cache = { k : np.zeros_like(v) for k,v in modelA.iteritems() } # rmsprop memory
+rmspropA0_cache = { k : np.zeros_like(v) for k,v in modelA0.iteritems() } # rmsprop memory
+rmspropA1_cache = { k : np.zeros_like(v) for k,v in modelA1.iteritems() } 
+rmspropA2_cache = { k : np.zeros_like(v) for k,v in modelA2.iteritems() } 
+rmspropA3_cache = { k : np.zeros_like(v) for k,v in modelA3.iteritems() } 
 rmspropC_cache = { k : np.zeros_like(v) for k,v in modelC.iteritems() } 
 
 # xs,hAs,hCs,dlogps,drs = [],[],[],[]
@@ -60,19 +67,43 @@ def take_random_action():
   sampled_action = np.random.randint(4)
   return sampled_action
 
-def actor_forward(x):
-  hA = np.dot(modelA['Psi1'], x)
-  hA[hA<0] = 0    # ReLU nonlinearity
-  logp = np.dot(modelA['Psi2'], hA)  #here is weird.. need to transpose to 4 actions, not only one
+def actor0_forward(x):
+  hA0 = np.dot(modelA0['Psi1'], x)
+  hA0[hA0<0] = 0    # ReLU nonlinearity
+  logp = np.dot(modelA0['Psi2'], hA0)  
   p = sigmoid(logp)
-  return p, hA     
+  return p, hA0     
+
+def actor1_forward(x):
+  hA1 = np.dot(modelA1['Psi1'], x)
+  hA1[hA1<0] = 0    
+  logp = np.dot(modelA1['Psi2'], hA1)
+  p = sigmoid(logp)
+  return p, hA1
+
+def actor2_forward(x):
+  hA2 = np.dot(modelA2['Psi1'], x)
+  hA2[hA2<0] = 0    
+  logp = np.dot(modelA2['Psi2'], hA2)
+  p = sigmoid(logp)
+  return p, hA2
+
+def actor3_forward(x):
+  hA3 = np.dot(modelA3['Psi1'], x)
+  hA3[hA3<0] = 0    
+  logp = np.dot(modelA3['Psi2'], hA3)
+  p = sigmoid(logp)
+  return p, hA3
+
+
 
 def critic_forward(x):
   hC = np.dot(modelC['Theta1'], x)
   hC[hC<0] = 0      
   logv = np.dot(modelC['Theta2'], hC)
-  v = sigmoid(logv)
-  return v, hC              # v is value function 
+  # v = sigmoid(logv)
+  # return v, hC              # v is value function 
+  return logv, hC              # logv is the value for the value function. Linear activation
 
 # def actor_backward(hA, ac_prob):   #backpropagation also has to be by four, not 1. NOT BY EPISODE!
 #   # dPsi2 = np.dot(hA.T, ac_prob).ravel()
@@ -130,7 +161,10 @@ while True:
 
   # ALG. Choose a from policy(s,psi):
       # forward the Actor to get actions probabilities
-  ac_prob, hA = actor_forward(x)
+  ac_prob0, hA0 = actor0_forward(x)
+  ac_prob1, hA1 = actor1_forward(x)
+  ac_prob2, hA2 = actor2_forward(x)
+  ac_prob3, hA3 = actor3_forward(x)
       # Sample an action from the returned probability with greedy exploration
   action    = int(epsilon_greedy_exploration(np.argmax(ac_prob), episode_number))
 
@@ -138,7 +172,7 @@ while True:
   x_prev = x
   x, reward, done, info = env.step(action) 
   reward_sum += reward
-  drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
+  drs.append(reward)      # record reward (has to be done after we call step() to get reward for previous action)
   # print ('step %d: reward  %f for action %d' % (step_number, reward, action)) 
 
 
@@ -158,6 +192,8 @@ while True:
   #   ALG. if delta > 0 then
   if delta_t>0:
     #     ALG. Psi_t = Psi_t + alpha*(a - Ac(s,psi)) grad_Ac(s,psi)
+    expected_prob = 1 if action ==
+    error_prob = 
     grad_A = actor_backward(hA, ac_prob,action)
     # only for the executed action
     for k,v in modelA.iteritems():   
