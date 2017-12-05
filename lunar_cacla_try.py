@@ -162,7 +162,7 @@ while True:
 
 
   #   ALG. Theta_t = Theta_t + beta*delta*gradient_V(s)  BACKPROPAGATION CRITIC
-  err_v = reward + gamma*v 
+  err_v = delta_t
   grad_C = critic_backward(hC, err_v)
   for k in modelC: gradC_buffer[k] += grad_C[k] 
   if step_number % batch_size == 0:
