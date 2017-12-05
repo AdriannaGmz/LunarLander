@@ -10,10 +10,10 @@ import gym
 # hyperparameters
 H = 200         # number of hidden layer neurons
 batch_size = 10 # every how many episodes to do a param update?
-# alpha = 1e-4    # learning_rate of actor
-# beta = 1e-2     # learning_rate of critic
-alpha = 0.5    # learning_rate of actor
-beta = 0.5     # learning_rate of critic
+alpha = 1e-4    # learning_rate of actor
+beta = 1e-2     # learning_rate of critic
+# alpha = 0.5    # learning_rate of actor
+# beta = 0.5     # learning_rate of critic
 # gamma = 0.99    # discount factor for reward
 gamma = 0.2    # discount factor for reward
 decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
@@ -67,33 +67,43 @@ def take_random_action():
   sampled_action = np.random.randint(4)
   return sampled_action
 
-def actor0_forward(x):
-  hA0 = np.dot(modelA0['Psi1'], x)
-  hA0[hA0<0] = 0    # ReLU nonlinearity
-  logp = np.dot(modelA0['Psi2'], hA0)  
-  p = sigmoid(logp)
-  return p, hA0     
 
-def actor1_forward(x):
-  hA1 = np.dot(modelA1['Psi1'], x)
-  hA1[hA1<0] = 0    
-  logp = np.dot(modelA1['Psi2'], hA1)
-  p = sigmoid(logp)
-  return p, hA1
 
-def actor2_forward(x):
-  hA2 = np.dot(modelA2['Psi1'], x)
-  hA2[hA2<0] = 0    
-  logp = np.dot(modelA2['Psi2'], hA2)
-  p = sigmoid(logp)
-  return p, hA2
 
-def actor3_forward(x):
-  hA3 = np.dot(modelA3['Psi1'], x)
-  hA3[hA3<0] = 0    
-  logp = np.dot(modelA3['Psi2'], hA3)
+def actor_forward(model,x):
+  hA = np.dot(model['Psi1'], x)
+  hA[hA<0] = 0    # ReLU nonlinearity
+  logp = np.dot(model['Psi2'], hA)  
   p = sigmoid(logp)
-  return p, hA3
+  return p, hA  
+
+# def actor0_forward(x):
+#   hA0 = np.dot(modelA0['Psi1'], x)
+#   hA0[hA0<0] = 0    # ReLU nonlinearity
+#   logp = np.dot(modelA0['Psi2'], hA0)  
+#   p = sigmoid(logp)
+#   return p, hA0     
+
+# def actor1_forward(x):
+#   hA1 = np.dot(modelA1['Psi1'], x)
+#   hA1[hA1<0] = 0    
+#   logp = np.dot(modelA1['Psi2'], hA1)
+#   p = sigmoid(logp)
+#   return p, hA1
+
+# def actor2_forward(x):
+#   hA2 = np.dot(modelA2['Psi1'], x)
+#   hA2[hA2<0] = 0    
+#   logp = np.dot(modelA2['Psi2'], hA2)
+#   p = sigmoid(logp)
+#   return p, hA2
+
+# def actor3_forward(x):
+#   hA3 = np.dot(modelA3['Psi1'], x)
+#   hA3[hA3<0] = 0    
+#   logp = np.dot(modelA3['Psi2'], hA3)
+#   p = sigmoid(logp)
+#   return p, hA3
 
 
 
@@ -118,18 +128,34 @@ def critic_forward(x):
 #                 # >>> modelA['Psi1'].shape        # (200, 8)
 #                 # >>> modelA['Psi2'].shape        # (4, 200)
 
-def actor_backward(hA, ac_prob,action):   #backpropagation only for weights that correspond to the performed action
-  dPsi2 = np.dot(np.vstack(hA.T), np.vstack(ac_prob).T).T  #(200,4)'   = <(200,1), (1,4)> 
-  dhA  = np.outer(ac_prob[action], modelA['Psi2'][action])   #DEBE SER (1,200)  = (1,4) X (4,200) 
+
+# def actor_backward(model, hA, ac_prob,action):   #backpropagation only for weights that correspond to the performed action
+#   dPsi2 = np.dot(np.vstack(hA.T), np.vstack(ac_prob).T).T  #(200,4)'   = <(200,1), (1,4)> 
+#   dhA  = np.outer(ac_prob[action], modelA['Psi2'][action])   #DEBE SER (1,200)  = (1,4) X (4,200) 
+#   dhA[np.vstack(hA).T <= 0] = 0 # backpro prelu
+#   dPsi1 = np.dot(dhA.T, np.vstack(x).T)                  #DEBE SER (200,8) = < (_1,200_)' (1,8)>
+#   return {'Psi1':dPsi1, 'Psi2':dPsi2}
+#                 # >>> modelA['Psi1'].shape        # (200, 8)
+#                 # >>> modelA['Psi2'].shape        # (4, 200)
+
+
+
+
+
+def actor_backward(model, hA, err_ac):   
+  dPsi2 = np.dot(hA.T, err_ac).ravel()   #(200,)   = <(200,)', (1)> 
+  dhA  = np.outer(err_ac, model['Psi2'])   #DEBE SER (1,200)  = (1,4) X (4,200) 
   dhA[np.vstack(hA).T <= 0] = 0 # backpro prelu
-  dPsi1 = np.dot(dhA.T, np.vstack(x).T)                  #DEBE SER (200,8) = < (_1,200_)' (1,8)>
+  dPsi1 = np.dot(dhA.T, np.vstack(x).T)    #DEBE SER (200,8) = < (_1,200_)' (1,8)>
   return {'Psi1':dPsi1, 'Psi2':dPsi2}
                 # >>> modelA['Psi1'].shape        # (200, 8)
                 # >>> modelA['Psi2'].shape        # (4, 200)
 
+
+
+
 def critic_backward(hC, v):
   dTheta2 = np.dot(hC.T, v).ravel()         # (200,)   = <(200,)', (1)>
-
   dhC = np.outer(v, modelC['Theta2'])       # (1,200)  =  (1) X (200,) 
   dhC[np.vstack(hC).T <= 0] = 0 # backpro prelu
   dTheta1 = np.dot(dhC.T, np.vstack(x).T)   # (200,8) = < (1,200)' (1,8)>
