@@ -93,19 +93,19 @@ def critic_forward(x):
   return logv, hC              # logv is the value for the value function. Linear activation
 
 def actor_backward(model, hA, err_ac):   
-  dPsi2 = np.dot(hA.T, err_ac)                     #(200,)   = <(200,)', (1)> 
-  dhA  = err_ac*model['Psi2']                    #(1,200)  = (1) X (200) 
-  dhA[np.vstack(hA).T <= 0] = 0                  # backpro prelu
-  dPsi1 = np.dot(dhA.T, np.vstack(x).T)          #(200,8) = < (_1,200_)' (1,8)>
+  dPsi2 = np.dot(hA.T, err_ac).ravel()     #(200,)   = <(200,)', (1)> 
+  dhA  = np.outer(err_ac, model['Psi2'])   #DEBE SER (1,200)  = (1) X (200) 
+  dhA[np.vstack(hA).T <= 0] = 0 # backpro prelu
+  dPsi1 = np.dot(dhA.T, np.vstack(x).T)    #DEBE SER (200,8) = < (_1,200_)' (1,8)>
   return {'Psi1':dPsi1, 'Psi2':dPsi2}
                 # >>> modelA['Psi1'].shape        # (200, 8)
                 # >>> modelA['Psi2'].shape        # (200,)
 
 def critic_backward(hC, v):
-  dTheta2 = np.dot(hC.T, v)                      # (200,)   = <(200,)', (1)>
-  dhC = v*modelC['Theta2']                     # (1,200)  =  (1) X (200,) 
-  dhC[np.vstack(hC).T <= 0] = 0                # backpro prelu
-  dTheta1 = np.dot(dhC.T, np.vstack(x).T)      # (200,8) = < (1,200)' (1,8)>
+  dTheta2 = np.dot(hC.T, v).ravel()         # (200,)   = <(200,)', (1)>
+  dhC = np.outer(v, modelC['Theta2'])       # (1,200)  =  (1) X (200,) 
+  dhC[np.vstack(hC).T <= 0] = 0 # backpro prelu
+  dTheta1 = np.dot(dhC.T, np.vstack(x).T)   # (200,8) = < (1,200)' (1,8)>
   return {'Theta1':dTheta1, 'Theta2':dTheta2}
                 # >>> modelC['Theta1'].shape      # (200, 8)
                 # >>> modelC['Theta2'].shape      # (200,)
@@ -129,7 +129,7 @@ x = env.reset()
 x_prev = None
 
 while True:
-  # if render: env.render()
+  if render: env.render()
   step_number += 1
 
   # ALG. Choose a from policy(s,psi):
@@ -157,14 +157,14 @@ while True:
 
   #   ALG. Theta_t = Theta_t + beta*delta*gradient_V(s)  BACKPROPAGATION CRITIC
   # err_v = reward + gamma*v 
-  err_v = v - v_prev
+  # err_v = v - v_prev
+  err_v = (v - v_prev) if delta_t > 0 else 10000 # a big error
   grad_C = critic_backward(hC, err_v)
   for k in modelC: gradC_buffer[k] += grad_C[k] 
   if step_number % batch_size == 0:
     for k,v in modelC.iteritems():
       rmspropC_cache[k] = decay_rate * rmspropC_cache[k]+  (1 - decay_rate) * grad_C[k]**2
-      modelC[k] += beta * grad_C[k] / (np.sqrt(rmspropC_cache[k]) + 1e-5)
-      # modelC[k] += beta * delta_t * grad_C[k]
+      modelC[k] += beta *delta_t* grad_C[k] / (np.sqrt(rmspropC_cache[k]) + 1e-5)
     
 
   #   ALG. if delta > 0 then
@@ -245,4 +245,4 @@ while True:
     x = env.reset()
     x_prev = None
     step_number=0
-  # print ('ep %d: step %d, rwd %f for action %d' % (episode_number,step_number, reward, action))
+  print ('ep %d: step %d, rwd %f for action %d' % (episode_number,step_number, reward, action))
