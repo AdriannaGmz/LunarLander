@@ -49,11 +49,18 @@ def gaussian_sample(mean, std):
   return gauss_sample
 
 def epsilon_greedy_exploration(best_action, episode_number):
-  epsilon = epsilon_scale/(epsilon_scale + episode_number)
+  epsilon = epsilon_scale/(1 + 0.001 * episode_number)
   prob_vector = [epsilon/4, epsilon/4, epsilon/4, epsilon/4]
   prob_vector[best_action] = epsilon/4 + 1 - epsilon
   action_to_explore = np.random.choice(4, 1, True, prob_vector)
   return action_to_explore
+
+def sample_from_action_probs(action_prob_values):
+  cumsum_action = np.cumsum(action_prob_values)
+  sum_action = np.sum(action_prob_values)
+  #sample_action = np.random.choice(4, 1, True, action_prob_values)
+  sample_action = int(np.searchsorted(cumsum_action,np.random.rand(1)*sum_action))
+  return sample_action
 
 def take_random_action():
   sampled_action = np.random.randint(4)
@@ -103,8 +110,8 @@ while True:
   ac_prob1, hA1 = policy_forward(modelA1,x)
   ac_prob2, hA2 = policy_forward(modelA2,x)
   ac_prob3, hA3 = policy_forward(modelA3,x)
-  action = int(epsilon_greedy_exploration(np.argmax([ac_prob0,ac_prob1,ac_prob2,ac_prob3]), episode_number))
-
+  # action = int(epsilon_greedy_exploration(np.argmax([ac_prob0,ac_prob1,ac_prob2,ac_prob3]), episode_number))
+  action = sample_from_action_probs([max(ac_prob0),max(ac_prob1),max(ac_prob2),max(ac_prob3)])
 
   # record various intermediates (needed later for backprop) before stepping
   xs.append(x) 

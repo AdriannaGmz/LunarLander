@@ -136,7 +136,7 @@ while True:
   #   ALG. Theta_t = Theta_t + beta*delta*gradient_V(s)  BACKPROPAGATION CRITIC
   # err_v = reward + gamma*v 
   # err_v = v - v_prev if v_target>0 else 10000 # a big mistake
-  grad_C = critic_backward(x, v_target)
+  grad_C = critic_backward(x_prev, v_target)
   for k,v in modelC.iteritems():
     modelC[k] += beta * grad_C[k] 
   # for k in modelC: gradC_buffer[k] += grad_C[k] 
@@ -159,7 +159,7 @@ while True:
 
   # only for the non-executed actions
     # modelA[k] += alpha * (action - ac_prob[action])* grad_A[k]
-    grad_A = actor_backward(x,err_probs)
+    grad_A = actor_backward(x_prev,err_probs)
     # grad_A = actor_backward(x,ac_target)
     for k,v in modelA.iteritems():   
       modelA[k] += alpha * grad_A[k]
