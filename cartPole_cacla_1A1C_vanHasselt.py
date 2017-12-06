@@ -75,20 +75,24 @@ def critic_forward(x):
   logv = np.dot(modelC['Theta2'], hC)
   v = sigmoid(logv)
   return v, hC              
-  #return logv, hC              # logv is the value for the value function. Linear activation
 
-def actor_backward(hA, err_probs):   
-  dPsi2 = np.outer(hA.T, err_probs).T            #(200,4)'   = <(200,1)', (4,)> '
-  dhA  = np.dot(err_probs.T, modelA['Psi2']).T   #(1,200)'  = (4,)' (4,200) 
+
+def actor_backward(x,target_a):
+  ac_prob, hA = actor_forward(x)
+  # error = target_a - ac_prob
+  error = target_a
+  dPsi2 = np.outer(hA.T, error).T            #(200,4)'   = <(200,1)', (4,)> '
+  dhA  = np.dot(error.T, modelA['Psi2']).T   #(1,200)'  = (4,)' (4,200) 
   dhA[hA <= 0] = 0                               # backpro prelu
   dPsi1 = np.dot(np.vstack(dhA), np.vstack(x).T) #(200,8) = < (_1,200_)' (1,8)>
   return {'Psi1':dPsi1, 'Psi2':dPsi2}
                 # >>> modelA['Psi1'].shape        # (200, 8)
                 # >>> modelA['Psi2'].shape        # (4,200)
 
-def critic_backward(hC, v):
-  dTheta2 = v*hC                              # (200,)   = <(200,)', (1)>
-  dhC = v*modelC['Theta2']                     # (1,200)  =  (1) X (200,) 
+def critic_backward(x,target_v):
+  v, hC = critic_forward(x)
+  dTheta2 = (target_v-v)*hC                              # (200,)   = <(200,)', (1)>
+  dhC = target_v*modelC['Theta2']                     # (1,200)  =  (1) X (200,) 
   dhC[hC <= 0] = 0                             # backpro prelu
   dTheta1 = np.dot(np.vstack(dhC),np.vstack(x).T)      # (200,8) = < (1,200)' (1,8)>
   return {'Theta1':dTheta1, 'Theta2':dTheta2}
@@ -122,12 +126,10 @@ while True:
   x, reward, done, info = env.step(action) 
   reward_sum += reward
 
-  v_prev, hC_prev = critic_forward(x_prev)
-  v, hC           = critic_forward(x)
-  delta_t         = reward + gamma*v - v_prev
+  v_x, hC           = critic_forward(x)
+  v_target         = reward + gamma*v_x
 
-  err_v = (v - v_prev)**2 if delta_t>0 else 10000 # a big mistake
-  grad_C = critic_backward(hC, err_v)
+  grad_C = critic_backward(x_prev, v_target)
 
   for k in modelC: gradC_buffer[k] += grad_C[k] 
   if step_number % batch_size == 0:
@@ -136,23 +138,23 @@ while True:
       rmspropC_cache[k] = decay_rate * rmspropC_cache[k] + (1 - decay_rate) * g**2
       modelC[k] += - beta * g / (np.sqrt(rmspropC_cache[k]) + 1e-5)
       gradC_buffer[k] = np.zeros_like(v) 
-  if delta_t>0:
+  if v_target > v_x:
     #     ALG. Psi_t = Psi_t + alpha*(a - Ac(s,psi)) grad_Ac(s,psi)
     for k in range(len(err_probs)):
-      err_probs[k] = (1-ac_prob[k])**2 if k == action else (0-ac_prob[k])**2  #error in probability of expected label
+      err_probs[k] = (1-ac_prob[k]) if k == action else (0-ac_prob[k])  #error in probability of expected label
 
     # only for the non-executed actions
       # modelA[k] += alpha * (action - ac_prob[action])* grad_A[k]
-      grad_A = actor_backward(hA,err_probs)
+    grad_A = actor_backward(x_prev,err_probs)
       # for k,v in modelA.iteritems():   
       #   modelA[k] += -alpha * grad_A[k]
-      for k in modelA: gradA_buffer[k] += grad_A[k] 
-      if step_number % batch_size == 0:
-        for k,v in modelA.iteritems():
-          g = gradA_buffer[k] 
-          rmspropA_cache[k] = decay_rate * rmspropA_cache[k] + (1 - decay_rate) * g**2
-          modelA[k] += - alpha * g / (np.sqrt(rmspropA_cache[k]) + 1e-5)
-          gradA_buffer[k] = np.zeros_like(v) 
+    for k in modelA: gradA_buffer[k] += grad_A[k] 
+    if step_number % batch_size == 0:
+      for k,v in modelA.iteritems():
+        g = gradA_buffer[k] 
+        rmspropA_cache[k] = decay_rate * rmspropA_cache[k] + (1 - decay_rate) * g**2
+        modelA[k] += - alpha * g / (np.sqrt(rmspropA_cache[k]) + 1e-5)
+        gradA_buffer[k] = np.zeros_like(v) 
 
 
   if done: # an episode finished
