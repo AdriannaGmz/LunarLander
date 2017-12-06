@@ -15,7 +15,7 @@ beta = 1e-2     # learning_rate of critic
 gamma = 0.99    # discount factor for reward
 decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
 render = False
-resume = False
+resume = True
 
 
 #models initialization, Actor and Critic
@@ -24,14 +24,14 @@ A = 4 # action space
 
 if resume:
 
-  modelA = pickle.load(open('saveA.p'), 'rb')
-  modelC = pickle.load(open('saveC.p'), 'rb')
+  modelA = pickle.load(open('saveA.p', 'rb'))
+  modelC = pickle.load(open('saveC.p', 'rb'))
 
-  gradA_buffer = pickle.load(open('saveGradA.p'), 'rb')
-  gradC_buffer = pickle.load(open('saveGradC.p'), 'rb')
+  gradA_buffer = pickle.load(open('saveGradA.p', 'rb'))
+  gradC_buffer = pickle.load(open('saveGradC.p', 'rb'))
 
-  rmspropA_cache = pickle.load(open('saveRmsA.p'), 'rb')
-  rmspropC_cache = pickle.load(open('saveRmsC.p'), 'rb')
+  rmspropA_cache = pickle.load(open('saveRmsA.p', 'rb'))
+  rmspropC_cache = pickle.load(open('saveRmsC.p', 'rb'))
 
 else:
 
