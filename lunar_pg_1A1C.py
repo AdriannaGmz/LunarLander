@@ -45,7 +45,7 @@ def sample_from_action_probs(action_prob_values):
   sum_action = np.sum(action_prob_values)
   #sample_action = np.random.choice(4, 1, True, action_prob_values)
   sample_action = int(np.searchsorted(cumsum_action,np.random.rand(1)*sum_action))
-return sample_action
+  return sample_action
 
 def take_random_action():
   sampled_action = np.random.randint(4)

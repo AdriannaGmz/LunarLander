@@ -111,7 +111,7 @@ while True:
   ac_prob2, hA2 = policy_forward(modelA2,x)
   ac_prob3, hA3 = policy_forward(modelA3,x)
   # action = int(epsilon_greedy_exploration(np.argmax([ac_prob0,ac_prob1,ac_prob2,ac_prob3]), episode_number))
-  action = sample_from_action_probs([max(ac_prob0),max(ac_prob1),max(ac_prob2),max(ac_prob3)])
+  action = sample_from_action_probs((ac_prob0)+(ac_prob1)+(ac_prob2)+(ac_prob3))
 
   # record various intermediates (needed later for backprop) before stepping
   xs.append(x) 
