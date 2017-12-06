@@ -17,7 +17,7 @@ alpha = 1e-4
 beta = 1e-2
 gamma = 0.99 # discount factor for reward
 decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
-render = True
+render = False
 
 # model initialization
 D = 4 # observation space
@@ -73,9 +73,9 @@ def critic_forward(x):
   hC = np.dot(modelC['Theta1'], x)
   hC[hC<0] = 0      
   logv = np.dot(modelC['Theta2'], hC)
-  v = sigmoid(logv)
-  return v, hC              
-  #return logv, hC              # logv is the value for the value function. Linear activation
+  # v = sigmoid(logv)
+  # return v, hC              
+  return logv, hC              # logv is the value for the value function. Linear activation
 
 def actor_backward(hA, err_probs):   
   dPsi2 = np.outer(hA.T, err_probs).T            #(200,4)'   = <(200,1)', (4,)> '
@@ -126,7 +126,7 @@ while True:
   v, hC           = critic_forward(x)
   delta_t         = reward + gamma*v - v_prev
 
-  err_v = (v - v_prev)**2 if delta_t>0 else 10000 # a big mistake
+  err_v = v - v_prev if delta_t>0 else 10000 # a big mistake
   grad_C = critic_backward(hC, err_v)
 
   for k in modelC: gradC_buffer[k] += grad_C[k] 
@@ -139,7 +139,7 @@ while True:
   if delta_t>0:
     #     ALG. Psi_t = Psi_t + alpha*(a - Ac(s,psi)) grad_Ac(s,psi)
     for k in range(len(err_probs)):
-      err_probs[k] = (1-ac_prob[k])**2 if k == action else (0-ac_prob[k])**2  #error in probability of expected label
+      err_probs[k] = (1-ac_prob[k]) if k == action else (0-ac_prob[k])  #error in probability of expected label
 
     # only for the non-executed actions
       # modelA[k] += alpha * (action - ac_prob[action])* grad_A[k]

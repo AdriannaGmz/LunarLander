@@ -17,7 +17,7 @@ alpha = 1e-4
 beta = 1e-2
 gamma = 0.99 # discount factor for reward
 decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
-render = True
+render = False
 
 # model initialization
 D = 4 # observation space
