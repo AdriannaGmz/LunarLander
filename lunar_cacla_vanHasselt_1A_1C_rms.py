@@ -127,7 +127,7 @@ while True:
 
 
   # ALG. calculate delta = r + gamma*V(s') - V(s)
-  v_x, hC           = critic_forward(x)
+  v_x, hC          = critic_forward(x)
   v_target         = reward + gamma*v_x
 
 

@@ -52,11 +52,18 @@ def gaussian_sample(mean, std):
   return gauss_sample
 
 def epsilon_greedy_exploration(best_action, episode_number):
-  epsilon = epsilon_scale/(epsilon_scale + episode_number)
+  epsilon = epsilon_scale/(1 + 0.001 * episode_number)
   prob_vector = [epsilon/4, epsilon/4, epsilon/4, epsilon/4]
   prob_vector[best_action] = epsilon/4 + 1 - epsilon
   action_to_explore = np.random.choice(4, 1, True, prob_vector)
   return action_to_explore
+
+def sample_from_action_probs(action_prob_values):
+  cumsum_action = np.cumsum(action_prob_values)
+  sum_action = np.sum(action_prob_values)
+  #sample_action = np.random.choice(4, 1, True, action_prob_values)
+  sample_action = int(np.searchsorted(cumsum_action,np.random.rand(1)*sum_action))
+  return sample_action
 
 def take_random_action():
   sampled_action = np.random.randint(4)
@@ -74,9 +81,8 @@ def critic_forward(x):
   hC = np.dot(modelC['Theta1'], x)
   hC[hC<0] = 0      
   logv = np.dot(modelC['Theta2'], hC)
-  # v = sigmoid(logv)
-  # return v, hC              
-  return logv, hC              # logv is the value for the value function. Linear activation
+  v = sigmoid(logv)
+  return v, hC              
 
 def actor_backward(hA, err_probs):   
   dPsi2 = np.outer(hA.T, err_probs).T            #(200,4)'   = <(200,1)', (4,)> '
@@ -109,7 +115,7 @@ while True:
       # forward the Actor to get actions probabilities
   ac_prob, hA = actor_forward(x)
       # Sample an action from the returned probabilities with greedy exploration
-  action = int(epsilon_greedy_exploration(np.argmax(ac_prob), episode_number))
+  action = sample_from_action_probs(ac_prob)
 
   # ALG. Perform a, observe r and s'
   x_prev = x
