@@ -130,8 +130,7 @@ while True:
 
 
   #   ALG. Theta_t = Theta_t + beta*delta*gradient_V(s)  BACKPROPAGATION CRITIC
-  # err_v = reward + gamma*v 
-  err_v = v - v_prev if delta_t>0 else 10000 # a big mistake
+  err_v = (v - v_prev)**2 if delta_t>0 else 10000 # a big mistake
   grad_C = critic_backward(hC, err_v)
   # for k,v in modelC.iteritems():
   #   modelC[k] += -beta * grad_C[k] 
@@ -150,7 +149,7 @@ while True:
   if delta_t>0:
     #     ALG. Psi_t = Psi_t + alpha*(a - Ac(s,psi)) grad_Ac(s,psi)
     for k in range(len(err_probs)):
-      err_probs[k] = (1-ac_prob[k]) if k == action else (0-ac_prob[k])  #error in probability of expected label
+      err_probs[k] = (1-ac_prob[k])**2 if k == action else (0-ac_prob[k])**2  #error in probability of expected label
 
     # only for the non-executed actions
       # modelA[k] += alpha * (action - ac_prob[action])* grad_A[k]
