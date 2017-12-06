@@ -80,9 +80,9 @@ def critic_forward(x):
   hC = np.dot(modelC['Theta1'], x)
   hC[hC<0] = 0      
   logv = np.dot(modelC['Theta2'], hC)
-  # v = sigmoid(logv)
-  # return v, hC              
-  return logv, hC              # logv is the value for the value function. Linear activation
+  v = sigmoid(logv)
+  return v, hC              
+  
 
 def actor_backward(x,target_a):
   ac_prob, hA = actor_forward(x)
@@ -106,7 +106,6 @@ def critic_backward(x,target_v):
                 # >>> modelC['Theta1'].shape      # (200, 8)
                 # >>> modelC['Theta2'].shape      # (200,)
 
-
 env = gym.make("LunarLander-v2")
 x = env.reset()
 x_prev = None
@@ -129,7 +128,6 @@ while True:
 
   # ALG. calculate delta = r + gamma*V(s') - V(s)
   v_x, hC           = critic_forward(x)
-
   v_target         = reward + gamma*v_x
 
 
@@ -137,15 +135,15 @@ while True:
   # err_v = reward + gamma*v 
   # err_v = v - v_prev if v_target>0 else 10000 # a big mistake
   grad_C = critic_backward(x_prev, v_target)
-  for k,v in modelC.iteritems():
-    modelC[k] += beta * grad_C[k] 
-  # for k in modelC: gradC_buffer[k] += grad_C[k] 
-  # if step_number % batch_size == 0:
-  #   for k,v in modelC.iteritems():
-  #     g = gradC_buffer[k] 
-  #     rmspropC_cache[k] = decay_rate * rmspropC_cache[k] + (1 - decay_rate) * g**2
-  #     modelC[k] += - beta * g / (np.sqrt(rmspropC_cache[k]) + 1e-5)
-  #     gradC_buffer[k] = np.zeros_like(v) 
+  # for k,v in modelC.iteritems():
+  #   modelC[k] += beta * grad_C[k] 
+  for k in modelC: gradC_buffer[k] += grad_C[k] 
+  if step_number % batch_size == 0:
+    for k,v in modelC.iteritems():
+      g = gradC_buffer[k] 
+      rmspropC_cache[k] = decay_rate * rmspropC_cache[k] + (1 - decay_rate) * g**2
+      modelC[k] += - beta * g / (np.sqrt(rmspropC_cache[k]) + 1e-5)
+      gradC_buffer[k] = np.zeros_like(v) 
 
 
     
@@ -161,15 +159,15 @@ while True:
     # modelA[k] += alpha * (action - ac_prob[action])* grad_A[k]
     grad_A = actor_backward(x_prev,err_probs)
     # grad_A = actor_backward(x,ac_target)
-    for k,v in modelA.iteritems():   
-      modelA[k] += alpha * grad_A[k]
-    # for k in modelA: gradA_buffer[k] += grad_A[k] 
-    # if step_number % batch_size == 0:
-    #   for k,v in modelA.iteritems():
-    #     g = gradA_buffer[k] 
-    #     rmspropA_cache[k] = decay_rate * rmspropA_cache[k] + (1 - decay_rate) * g**2
-    #     modelA[k] += - alpha * g / (np.sqrt(rmspropA_cache[k]) + 1e-5)
-    #     gradA_buffer[k] = np.zeros_like(v) 
+    # for k,v in modelA.iteritems():   
+      # modelA[k] += alpha * grad_A[k]
+    for k in modelA: gradA_buffer[k] += grad_A[k] 
+    if step_number % batch_size == 0:
+      for k,v in modelA.iteritems():
+        g = gradA_buffer[k] 
+        rmspropA_cache[k] = decay_rate * rmspropA_cache[k] + (1 - decay_rate) * g**2
+        modelA[k] += - alpha * g / (np.sqrt(rmspropA_cache[k]) + 1e-5)
+        gradA_buffer[k] = np.zeros_like(v) 
 
 
 
