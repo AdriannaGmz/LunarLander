@@ -166,7 +166,7 @@ while True:
       for k,v in modelA.iteritems():
         g = gradA_buffer[k] 
         rmspropA_cache[k] = decay_rate * rmspropA_cache[k] + (1 - decay_rate) * g**2
-        modelA[k] += - alpha * g / (np.sqrt(rmspropA_cache[k]) + 1e-5)
+        modelA[k] += alpha * g / (np.sqrt(rmspropA_cache[k]) + 1e-5)
         gradA_buffer[k] = np.zeros_like(v) 
 
 
