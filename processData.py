@@ -3,7 +3,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-filepath = 'data.txt'
+print(len(sys.argv))
+
+if len(sys.argv) == 2:
+	filepath = str(sys.argv[1])
+	print(filepath)
+else:
+	print("Pls specify filename/path")
+	sys.exit()
 
 f = open(filepath, 'r')
 lines = f.readlines()
